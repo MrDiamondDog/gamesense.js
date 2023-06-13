@@ -1,21 +1,21 @@
 {
-  "name": "gamesense.js",
-  "version": "0.0.1",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "example": "tsc && node dist/examples/index.js"
-  },
-  "keywords": [],
-  "author": "MrDiamond",
-  "license": "ISC",
-  "dependencies": {
-    "typescript": "^5.0.4"
-  },
-  "devDependencies": {
-    "@types/node": "^20.1.2"
-  },
-  "typings": "index.d.ts"
+    "name": "gamesense.js",
+    "version": "0.0.1",
+    "description": "A library to interact with the GameSense API.",
+    "main": "dist/gamesense.js",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w",
+        "example": "tsc && node dist/examples/index.js"
+    },
+    "keywords": [],
+    "author": "MrDiamond",
+    "license": "ISC",
+    "dependencies": {
+        "typescript": "^5.0.4"
+    },
+    "devDependencies": {
+        "@types/node": "^20.1.2"
+    },
+    "typings": "dist/gamesense.d.ts"
 }
