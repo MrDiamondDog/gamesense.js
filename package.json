@@ -1,6 +1,6 @@
 {
     "name": "gamesense.js",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "A library to interact with the GameSense API.",
     "main": "dist/gamesense.js",
     "scripts": {
@@ -11,11 +11,9 @@
     "keywords": [],
     "author": "MrDiamond",
     "license": "ISC",
-    "dependencies": {
-        "typescript": "^5.0.4"
-    },
     "devDependencies": {
-        "@types/node": "^20.1.2"
+        "@types/node": "^20.1.2",
+        "typescript": "^5.0.4"
     },
     "typings": "dist/gamesense.d.ts"
 }
