@@ -280,12 +280,36 @@ export class GSScreen {
         this.zone = options.zone;
     }
 
-    public addLine(line: GSScreenLine): void {
+    public addLine(...lines: GSScreenLine[]): void {
         if (this.datas[0]) {
-            this.datas[0].lines.push(line);
+            for (const l of lines) {
+                this.datas[0].lines.push(l);
+            }
         } else {
             this.datas.push({
-                lines: [line]
+                lines: lines
+            });
+        }
+    }
+
+    public removeLine(i: number): void {
+        if (this.datas[0]) {
+            this.datas[0].lines.splice(i, 1);
+        }
+    }
+
+    public clearLines(): void {
+        if (this.datas[0]) {
+            this.datas[0].lines = [];
+        }
+    }
+
+    public setLines(...lines: GSScreenLine[]): void {
+        if (this.datas[0]) {
+            this.datas[0].lines = lines;
+        } else {
+            this.datas.push({
+                lines: lines
             });
         }
     }
