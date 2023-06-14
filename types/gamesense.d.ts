@@ -87,7 +87,10 @@ export declare class GSScreen {
      * @param options The options for the screen.
      */
     constructor(options: GSScreenOptions);
-    addLine(line: GSScreenLine): void;
+    addLine(...lines: GSScreenLine[]): void;
+    removeLine(i: number): void;
+    clearLines(): void;
+    setLines(...lines: GSScreenLine[]): void;
 }
 /**
  * The options to use when initializing the GameSense API.

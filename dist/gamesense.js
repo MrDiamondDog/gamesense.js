@@ -286,13 +286,35 @@ class GSScreen {
         this.deviceType = options.deviceType;
         this.zone = options.zone;
     }
-    addLine(line) {
+    addLine(...lines) {
         if (this.datas[0]) {
-            this.datas[0].lines.push(line);
+            for (const l of lines) {
+                this.datas[0].lines.push(l);
+            }
         }
         else {
             this.datas.push({
-                lines: [line]
+                lines: lines
+            });
+        }
+    }
+    removeLine(i) {
+        if (this.datas[0]) {
+            this.datas[0].lines.splice(i, 1);
+        }
+    }
+    clearLines() {
+        if (this.datas[0]) {
+            this.datas[0].lines = [];
+        }
+    }
+    setLines(...lines) {
+        if (this.datas[0]) {
+            this.datas[0].lines = lines;
+        }
+        else {
+            this.datas.push({
+                lines: lines
             });
         }
     }
