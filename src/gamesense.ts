@@ -138,6 +138,7 @@ export class GameSense {
                 min_value: event.minValue,
                 max_value: event.maxValue,
                 icon_id: event.iconId,
+                value_optional: event.valueOptional,
                 handlers: [
                     {
                         "device-type": handler.deviceType,
@@ -440,7 +441,7 @@ export enum GSScreenDeviceZone {
     /**
      * All current OLED devices have a single screen. This may change in the future, introducing new zones.
      */
-    ONE = "one",
+    ONE = "one"
 }
 
 /**

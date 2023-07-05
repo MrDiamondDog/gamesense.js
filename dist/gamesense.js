@@ -165,6 +165,7 @@ class GameSense {
                     min_value: event.minValue,
                     max_value: event.maxValue,
                     icon_id: event.iconId,
+                    value_optional: event.valueOptional,
                     handlers: [
                         {
                             "device-type": handler.deviceType,
