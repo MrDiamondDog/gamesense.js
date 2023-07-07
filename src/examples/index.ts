@@ -7,6 +7,7 @@ const gs = new GameSense({
     game: {
         gameId: 'TEST_GAME',
         gameDisplayName: 'Test Game',
+        deinitializeTimerMs: 10000,
     }
 });
 
@@ -25,56 +26,87 @@ const event = new GameSenseEvent({
     eventId: 'TEST_EVENT',
 });
 
-/**
- * Creating a new Screen instance
- * This one is a 128x40 screen for Apex 7, Apex 7 TKL, Apex Pro, Apex Pro TKL
- */
-const screen = new GSScreen({
-    gs: gs,
-    deviceType: GSScreenDeviceType.SCREEN_128x40,
-    zone: GSScreenDeviceZone.ONE
-});
+function normalScreen() {
+    /**
+     * Creating a new Screen instance
+     * This one is a 128x40 screen for Apex 7, Apex 7 TKL, Apex Pro, Apex Pro TKL
+     */
+    const screen = new GSScreen({
+        gs: gs,
+        deviceType: GSScreenDeviceType.SCREEN_128x40,
+        zone: GSScreenDeviceZone.ONE,
+    });
 
-/**
- * Adding lines to the screen
- * This one is text that says "Test 1: <value>"
- */
-screen.addLine({
-    "has-text": true,
-    prefix: 'Test 1: ',
-});
+    /**
+     * Adding lines to the screen
+     * This one is text that says "Test 1: <value>"
+     */
+    screen.addLine({
+        "has-text": true,
+        prefix: 'Test 1: ',
+    });
 
-/**
- * Adding lines to the screen
- * This one is a progress bar
- */
-screen.addLine({
-    "has-progress-bar": true,
-    "has-text": false,
-});
+    /**
+     * Adding lines to the screen
+     * This one is a progress bar
+     */
+    screen.addLine({
+        "has-progress-bar": true,
+        "has-text": false,
+    });
 
-/**
- * Bind the screen to the event
- */
-gs.bindScreen(event, screen).then(() => {
-    console.log('Screen binded!');
-});
+    /**
+     * Bind the screen to the event
+     */
+    gs.bindScreen(event, screen).then(() => {
+        console.log('Screen binded!');
+    });
 
-let i = 0;
-
-/**
- * Sends the event every 100ms with a different value
- */
-function loop() {
-    event.send(gs, i).then(() =>
-        console.log('Event sent! ' + event.value)
-    ).catch((err) =>
-        console.error(err)
-    );
-    i++;
-    if (i > 100) {
-        i = 0;
-    }
+    /**
+     * Send the event to the GameSense API with a value increasing from 0 to 100
+     */
+    let i = 0;
+    setInterval(() => {
+        event.send(gs, i);
+        i++;
+        if (i > 100) {
+            i = 0;
+        }
+    }, 100);
 }
 
-setInterval(loop, 100);
+function bitmapScreen() {
+    /**
+     * Creating a new Screen instance
+     * But with useBitmap set to true
+     */
+    const screen = new GSScreen({
+        gs: gs,
+        deviceType: GSScreenDeviceType.SCREEN_128x40,
+        zone: GSScreenDeviceZone.ONE,
+        useBitmap: true,
+    });
+
+    /**
+     * Bind the screen to the event
+     */
+    gs.bindScreen(event, screen).then(() => {
+        console.log('Screen binded!');
+
+        /**
+         * Draw a rectangle on the screen
+         * This one is a 10x10 rectangle at (10, 10)
+         */
+        screen.bitmap?.drawRect(10, 10, 20, 10, true);
+
+        /**
+         * Render the bitmap.
+         * Must be done only after the screen is binded.
+         */
+        screen.render(gs, event);
+    });
+}
+
+// Uncomment one of these to test
+// normalScreen()
+// bitmapScreen()

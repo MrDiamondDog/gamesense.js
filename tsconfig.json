@@ -13,7 +13,6 @@
     "declarationDir": "./types"
   },
   "exclude": [
-    "./src/examples/*.ts",
     "./dist/**/*",
     "./types/**/*"
   ]

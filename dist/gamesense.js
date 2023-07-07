@@ -32,7 +32,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GSIcons = exports.GSScreenDeviceZone = exports.GSScreenDeviceType = exports.GSScreen = exports.GameSenseEvent = exports.GameSense = void 0;
+exports.GSIcons = exports.GSScreenDeviceZone = exports.GSScreenDeviceType = exports.GSScreenBitmap = exports.GSScreen = exports.GameSenseEvent = exports.GameSense = void 0;
 const fs = __importStar(require("fs"));
 const http = __importStar(require("http"));
 /**
@@ -114,7 +114,7 @@ class GameSense {
                     game: this.gameOptions.gameId,
                     game_display_name: this.gameOptions.gameDisplayName,
                     developer: this.gameOptions.developer,
-                    deinitialize_timer_ms: this.gameOptions.deinitializeTimerMs
+                    deinitialize_timer_length_ms: this.gameOptions.deinitializeTimerMs
                 };
                 this.post("/game_metadata", data)
                     .then(() => {
@@ -246,7 +246,8 @@ class GameSenseEvent {
      * See {@link https://github.com/SteelSeries/gamesense-sdk/blob/master/doc/api/sending-game-events.md#event-context-data Event Context Data}
      * @param gs The GameSense API to use.
      * @param value The new value to send to the SteelSeries API.
-     * @param frame [Optional] Additional context data to send. It should be a simple JSON object of key-value pairs. Values must be basic types and arrays. This data can be accessed in handlers. (Default: undefined)
+     * @param frame [Optional] Additional context data to send. It should be a simple JSON object of key-value pairs. Values must be basic types and arrays. This data can be accessed in handlers.
+     * Using `"image-data-[w]x[h]": <bitmap>` will change a bitmap screen's bitmap. (Default: undefined)
      */
     send(gs, value, frame) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -281,15 +282,55 @@ class GSScreen {
      * @param options The options for the screen.
      */
     constructor(options) {
+        var _a;
         this.mode = "screen";
         this.datas = [];
+        this.useBitmap = false;
+        this.screenSizeStr = "";
         this.options = options;
         this.deviceType = options.deviceType;
         this.zone = options.zone;
+        this.useBitmap = options.useBitmap || false;
+        if (this.deviceType == GSScreenDeviceType.SCREEN_128x40) {
+            this.screenSizeStr = "128x40";
+        }
+        else if (this.deviceType == GSScreenDeviceType.SCREEN_128x52) {
+            this.screenSizeStr = "128x52";
+        }
+        else if (this.deviceType == GSScreenDeviceType.SCREEN_128x36) {
+            this.screenSizeStr = "128x36";
+        }
+        else if (this.deviceType == GSScreenDeviceType.SCREEN_128x48) {
+            this.screenSizeStr = "128x48";
+        }
+        if (this.useBitmap) {
+            if (this.deviceType == GSScreenDeviceType.SCREEN_128x40) {
+                this.bitmap = new GSScreenBitmap(128, 40);
+            }
+            else if (this.deviceType == GSScreenDeviceType.SCREEN_128x52) {
+                this.bitmap = new GSScreenBitmap(128, 52);
+            }
+            else if (this.deviceType == GSScreenDeviceType.SCREEN_128x36) {
+                this.bitmap = new GSScreenBitmap(128, 36);
+            }
+            else if (this.deviceType == GSScreenDeviceType.SCREEN_128x48) {
+                this.bitmap = new GSScreenBitmap(128, 48);
+            }
+            this.datas = [
+                {
+                    "has-text": false,
+                    "image-data": (_a = this.bitmap) === null || _a === void 0 ? void 0 : _a.getBitmap()
+                }
+            ];
+        }
     }
     addLine(...lines) {
+        if (this.useBitmap)
+            return;
         if (this.datas[0]) {
             for (const l of lines) {
+                if (!this.datas[0].lines)
+                    this.datas[0].lines = [];
                 this.datas[0].lines.push(l);
             }
         }
@@ -300,16 +341,24 @@ class GSScreen {
         }
     }
     removeLine(i) {
+        if (this.useBitmap)
+            return;
         if (this.datas[0]) {
+            if (!this.datas[0].lines)
+                return;
             this.datas[0].lines.splice(i, 1);
         }
     }
     clearLines() {
+        if (this.useBitmap)
+            return;
         if (this.datas[0]) {
             this.datas[0].lines = [];
         }
     }
     setLines(...lines) {
+        if (this.useBitmap)
+            return;
         if (this.datas[0]) {
             this.datas[0].lines = lines;
         }
@@ -319,8 +368,73 @@ class GSScreen {
             });
         }
     }
+    /**
+     * Render the bitmap.
+     * This should be called repeatedly to update the screen, otherwise it won't show up.
+     * @param gs The GameSense API to use.
+     * @param event The event to send.
+     */
+    render(gs, event) {
+        var _a;
+        event.send(gs, event.value, {
+            ["image-data-" + this.screenSizeStr]: (_a = this.bitmap) === null || _a === void 0 ? void 0 : _a.getBitmap(),
+        });
+    }
 }
 exports.GSScreen = GSScreen;
+class GSScreenBitmap {
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.bitmap = Buffer.alloc(width * height / 8);
+    }
+    drawPixel(x, y, on) {
+        const byteIndex = y * Math.ceil(this.width / 8) + Math.floor(x / 8);
+        const bitOffset = 7 - (x % 8);
+        if (on) {
+            this.bitmap[byteIndex] |= (1 << bitOffset);
+        }
+        else {
+            this.bitmap[byteIndex] &= ~(1 << bitOffset);
+        }
+    }
+    drawLine(x1, y1, x2, y2, on) {
+        const dx = Math.abs(x2 - x1);
+        const dy = Math.abs(y2 - y1);
+        const sx = (x1 < x2) ? 1 : -1;
+        const sy = (y1 < y2) ? 1 : -1;
+        let err = dx - dy;
+        while (true) {
+            this.drawPixel(x1, y1, on);
+            if ((x1 == x2) && (y1 == y2))
+                break;
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x1 += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y1 += sy;
+            }
+        }
+    }
+    drawRect(x, y, width, height, on) {
+        for (let i = x; i < x + width; i++) {
+            for (let j = y; j < y + height; j++) {
+                this.drawPixel(i, j, on);
+            }
+        }
+    }
+    getBitmap() {
+        const arr = [];
+        for (let i = 0; i < this.bitmap.length; i++) {
+            arr.push(this.bitmap.readUInt8(i));
+        }
+        return arr;
+    }
+}
+exports.GSScreenBitmap = GSScreenBitmap;
 /**
  * The device type for a screen device.
  * @param SCREEN_128x36 Rival 700, Rival 710
@@ -347,10 +461,6 @@ var GSScreenDeviceType;
      * GameDAC / Arctis Pro + GameDAC
      */
     GSScreenDeviceType["SCREEN_128x52"] = "screened-128x52";
-    /**
-     * Any
-     */
-    GSScreenDeviceType["SCREEN"] = "screened";
 })(GSScreenDeviceType = exports.GSScreenDeviceType || (exports.GSScreenDeviceType = {}));
 /**
  * The zone for a screen device. All current OLED devices have a single screen. This may change in the future, introducing new zones.

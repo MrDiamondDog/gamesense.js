@@ -1,6 +1,6 @@
 {
   "name": "gamesense.js",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "A library to interact with the GameSense API.",
   "main": "dist/gamesense.js",
   "scripts": {

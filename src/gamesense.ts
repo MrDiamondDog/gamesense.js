@@ -87,7 +87,7 @@ export class GameSense {
                 game: this.gameOptions.gameId,
                 game_display_name: this.gameOptions.gameDisplayName,
                 developer: this.gameOptions.developer,
-                deinitialize_timer_ms: this.gameOptions.deinitializeTimerMs
+                deinitialize_timer_length_ms: this.gameOptions.deinitializeTimerMs
             };
 
             this.post("/game_metadata", data)
@@ -233,7 +233,8 @@ export class GameSenseEvent {
      * See {@link https://github.com/SteelSeries/gamesense-sdk/blob/master/doc/api/sending-game-events.md#event-context-data Event Context Data}
      * @param gs The GameSense API to use.
      * @param value The new value to send to the SteelSeries API.
-     * @param frame [Optional] Additional context data to send. It should be a simple JSON object of key-value pairs. Values must be basic types and arrays. This data can be accessed in handlers. (Default: undefined)
+     * @param frame [Optional] Additional context data to send. It should be a simple JSON object of key-value pairs. Values must be basic types and arrays. This data can be accessed in handlers.
+     * Using `"image-data-[w]x[h]": <bitmap>` will change a bitmap screen's bitmap. (Default: undefined)
      */
     public async send(gs: GameSense, value: number, frame?: any): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -269,6 +270,9 @@ export class GSScreen {
     public zone: GSScreenDeviceZone;
     public mode = "screen";
     public datas: GSScreenFrameData[] = [];
+    public bitmap?: GSScreenBitmap;
+    public useBitmap = false;
+    public screenSizeStr: string = "";
 
     /**
      * Creates a new GameSense screen.
@@ -279,11 +283,43 @@ export class GSScreen {
 
         this.deviceType = options.deviceType;
         this.zone = options.zone;
+        this.useBitmap = options.useBitmap || false;
+
+        if (this.deviceType == GSScreenDeviceType.SCREEN_128x40) {
+            this.screenSizeStr = "128x40";
+        } else if (this.deviceType == GSScreenDeviceType.SCREEN_128x52) {
+            this.screenSizeStr = "128x52";
+        } else if (this.deviceType == GSScreenDeviceType.SCREEN_128x36) {
+            this.screenSizeStr = "128x36";
+        } else if (this.deviceType == GSScreenDeviceType.SCREEN_128x48) {
+            this.screenSizeStr = "128x48";
+        }
+
+        if (this.useBitmap) {
+            if (this.deviceType == GSScreenDeviceType.SCREEN_128x40) {
+                this.bitmap = new GSScreenBitmap(128, 40);
+            } else if (this.deviceType == GSScreenDeviceType.SCREEN_128x52) {
+                this.bitmap = new GSScreenBitmap(128, 52);
+            } else if (this.deviceType == GSScreenDeviceType.SCREEN_128x36) {
+                this.bitmap = new GSScreenBitmap(128, 36);
+            } else if (this.deviceType == GSScreenDeviceType.SCREEN_128x48) {
+                this.bitmap = new GSScreenBitmap(128, 48);
+            }
+
+            this.datas = [
+                {
+                    "has-text": false,
+                    "image-data": this.bitmap?.getBitmap()
+                }
+            ];
+        }
     }
 
     public addLine(...lines: GSScreenLine[]): void {
+        if (this.useBitmap) return;
         if (this.datas[0]) {
             for (const l of lines) {
+                if (!this.datas[0].lines) this.datas[0].lines = [];
                 this.datas[0].lines.push(l);
             }
         } else {
@@ -294,18 +330,22 @@ export class GSScreen {
     }
 
     public removeLine(i: number): void {
+        if (this.useBitmap) return;
         if (this.datas[0]) {
+            if (!this.datas[0].lines) return;
             this.datas[0].lines.splice(i, 1);
         }
     }
 
     public clearLines(): void {
+        if (this.useBitmap) return;
         if (this.datas[0]) {
             this.datas[0].lines = [];
         }
     }
 
     public setLines(...lines: GSScreenLine[]): void {
+        if (this.useBitmap) return;
         if (this.datas[0]) {
             this.datas[0].lines = lines;
         } else {
@@ -313,6 +353,104 @@ export class GSScreen {
                 lines: lines
             });
         }
+    }
+
+    /**
+     * Render the bitmap. Only should be used if `useBitmap` is true.
+     * @param gs The GameSense API to use.
+     * @param event The event to send.
+     */
+    public render(gs: GameSense, event: GameSenseEvent) {
+        if (!this.useBitmap) return;
+        event.send(gs, event.value, {
+            ["image-data-" + this.screenSizeStr]: this.bitmap?.getBitmap(),
+        });
+    }
+}
+
+export class GSScreenBitmap {
+    public bitmap: Buffer;
+    public width: number;
+    public height: number;
+
+    constructor(width: number, height: number) {
+        this.width = width;
+        this.height = height;
+        this.bitmap = Buffer.alloc(width * height / 8);
+    }
+
+    /**
+     * Draws a pixel on the bitmap.
+     * @param x The X coordinate.
+     * @param y The Y coordinate.
+     * @param on Whether to turn the pixel on or off.
+     */
+    public drawPixel(x: number, y: number, on: boolean): void {
+        const byteIndex = y * Math.ceil(this.width / 8) + Math.floor(x / 8);
+        const bitOffset = 7 - (x % 8);
+
+        if (on) {
+            this.bitmap[byteIndex] |= (1 << bitOffset);
+        } else {
+            this.bitmap[byteIndex] &= ~(1 << bitOffset);
+        }
+    }
+
+    /**
+     * Draws a line on the bitmap.
+     * @param x1 The starting X coordinate.
+     * @param y1 The starting Y coordinate.
+     * @param x2 The ending X coordinate.
+     * @param y2 The ending Y coordinate.
+     * @param on Whether to turn the pixels on or off.
+     */
+    public drawLine(x1: number, y1: number, x2: number, y2: number, on: boolean): void {
+        const dx = Math.abs(x2 - x1);
+        const dy = Math.abs(y2 - y1);
+        const sx = (x1 < x2) ? 1 : -1;
+        const sy = (y1 < y2) ? 1 : -1;
+        let err = dx - dy;
+
+        while (true) {
+            this.drawPixel(x1, y1, on);
+            if ((x1 == x2) && (y1 == y2)) break;
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x1 += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y1 += sy;
+            }
+        }
+    }
+
+    /**
+     * Draw a rectangle on the bitmap.
+     * @param x The x position of the rectangle.
+     * @param y The y position of the rectangle.
+     * @param width The width of the rectangle.
+     * @param height The height of the rectangle.
+     * @param on Whether the rectangle should be on or off.
+     */
+    public drawRect(x: number, y: number, width: number, height: number, on: boolean): void {
+        for (let i = x; i < x + width; i++) {
+            for (let j = y; j < y + height; j++) {
+                this.drawPixel(i, j, on);
+            }
+        }
+    }
+
+    /**
+     * Gets the bitmap as an array of numbers.
+     */
+    public getBitmap(): number[] {
+        const arr: number[] = [];
+        for (let i = 0; i < this.bitmap.length; i++) {
+            arr.push(this.bitmap.readUInt8(i));
+        }
+        return arr;
     }
 }
 
@@ -370,15 +508,25 @@ export interface GSEventOptions {
  * @param gs The GameSense API to use.
  * @param deviceType The type of device to use.
  * @param zone The zone of the device to use.
+ * @param useBitmap [Optional] Whether to use a bitmap or not. (Default: false)
  */
 export interface GSScreenOptions {
     gs: GameSense;
     deviceType: GSScreenDeviceType;
     zone: GSScreenDeviceZone;
+    useBitmap?: boolean;
 }
 
+/**
+ * The options to use when using a screen device.
+ * @param lines The lines to use.
+ * @param has-text [Optional] Whether the screen has text or not. (Default: undefined)
+ * @param image-data [Optional] The image data to use. (Default: undefined)
+ */
 export interface GSScreenFrameData {
-    lines: GSScreenLine[];
+    lines?: GSScreenLine[];
+    "has-text"?: boolean;
+    "image-data"?: number[];
 }
 
 /**
@@ -428,10 +576,6 @@ export enum GSScreenDeviceType {
      * GameDAC / Arctis Pro + GameDAC
      */
     SCREEN_128x52 = "screened-128x52",
-    /**
-     * Any
-     */
-    SCREEN = "screened"
 }
 
 /**

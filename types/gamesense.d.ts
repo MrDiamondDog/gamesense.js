@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * A wrapper for the GameSense REST API.
  */
@@ -69,7 +70,8 @@ export declare class GameSenseEvent {
      * See {@link https://github.com/SteelSeries/gamesense-sdk/blob/master/doc/api/sending-game-events.md#event-context-data Event Context Data}
      * @param gs The GameSense API to use.
      * @param value The new value to send to the SteelSeries API.
-     * @param frame [Optional] Additional context data to send. It should be a simple JSON object of key-value pairs. Values must be basic types and arrays. This data can be accessed in handlers. (Default: undefined)
+     * @param frame [Optional] Additional context data to send. It should be a simple JSON object of key-value pairs. Values must be basic types and arrays. This data can be accessed in handlers.
+     * Using `"image-data-[w]x[h]": <bitmap>` will change a bitmap screen's bitmap. (Default: undefined)
      */
     send(gs: GameSense, value: number, frame?: any): Promise<void>;
 }
@@ -82,6 +84,9 @@ export declare class GSScreen {
     zone: GSScreenDeviceZone;
     mode: string;
     datas: GSScreenFrameData[];
+    bitmap?: GSScreenBitmap;
+    useBitmap: boolean;
+    screenSizeStr: string;
     /**
      * Creates a new GameSense screen.
      * @param options The options for the screen.
@@ -91,6 +96,23 @@ export declare class GSScreen {
     removeLine(i: number): void;
     clearLines(): void;
     setLines(...lines: GSScreenLine[]): void;
+    /**
+     * Render the bitmap.
+     * This should be called repeatedly to update the screen, otherwise it won't show up.
+     * @param gs The GameSense API to use.
+     * @param event The event to send.
+     */
+    render(gs: GameSense, event: GameSenseEvent): void;
+}
+export declare class GSScreenBitmap {
+    bitmap: Buffer;
+    width: number;
+    height: number;
+    constructor(width: number, height: number);
+    drawPixel(x: number, y: number, on: boolean): void;
+    drawLine(x1: number, y1: number, x2: number, y2: number, on: boolean): void;
+    drawRect(x: number, y: number, width: number, height: number, on: boolean): void;
+    getBitmap(): number[];
 }
 /**
  * The options to use when initializing the GameSense API.
@@ -143,14 +165,24 @@ export interface GSEventOptions {
  * @param gs The GameSense API to use.
  * @param deviceType The type of device to use.
  * @param zone The zone of the device to use.
+ * @param useBitmap [Optional] Whether to use a bitmap or not. (Default: false)
  */
 export interface GSScreenOptions {
     gs: GameSense;
     deviceType: GSScreenDeviceType;
     zone: GSScreenDeviceZone;
+    useBitmap?: boolean;
 }
+/**
+ * The options to use when using a screen device.
+ * @param lines The lines to use.
+ * @param has-text [Optional] Whether the screen has text or not. (Default: undefined)
+ * @param image-data [Optional] The image data to use. (Default: undefined)
+ */
 export interface GSScreenFrameData {
-    lines: GSScreenLine[];
+    lines?: GSScreenLine[];
+    "has-text"?: boolean;
+    "image-data"?: number[];
 }
 /**
  * A line on a screen device.
@@ -197,11 +229,7 @@ export declare enum GSScreenDeviceType {
     /**
      * GameDAC / Arctis Pro + GameDAC
      */
-    SCREEN_128x52 = "screened-128x52",
-    /**
-     * Any
-     */
-    SCREEN = "screened"
+    SCREEN_128x52 = "screened-128x52"
 }
 /**
  * The zone for a screen device. All current OLED devices have a single screen. This may change in the future, introducing new zones.
